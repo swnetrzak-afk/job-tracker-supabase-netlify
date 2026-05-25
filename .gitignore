@@ -1,0 +1,13 @@
+# Local config — never commit your own Supabase keys.
+# Adopters copy config.example.js → config.js and fill in their values.
+config.js
+
+# Local dev
+.env
+.env.local
+.netlify/
+node_modules/
+
+# OS noise
+.DS_Store
+Thumbs.db
