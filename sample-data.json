@@ -1,0 +1,73 @@
+{
+  "exportedAt": "2026-01-15T12:00:00Z",
+  "version": "hunt-v4",
+  "count": 3,
+  "jobs": [
+    {
+      "id": "example-1",
+      "title": "Senior Product Manager, AI",
+      "company": "Acme Corp",
+      "status": "interviewing",
+      "remote": "Hybrid",
+      "comp": "$180-220k + equity",
+      "contact": "Jane Doe (referral via LinkedIn)",
+      "url": "https://acme.example.com/careers/12345",
+      "notes": "Recruiter call went well. Onsite scheduled for next week. Ask about team structure and on-call expectations.",
+      "summary": "• Owns AI product roadmap end-to-end\n• Partners with research and eng leadership\n• Customer-facing for enterprise pilots\n• Reports to VP Product",
+      "requirements": "• 7+ years PM experience in technical or AI products\n• Hands-on with LLMs, RAG, agent patterns\n• Experience scaling 0 to 1 to production\n• Strong written communication",
+      "jd": "(full job description text — optional, kept locally for reference only, never exported in CSV)",
+      "dateApplied": "2026-01-10",
+      "lastStatusDate": "2026-01-14",
+      "statusHistory": [
+        { "status": "applied", "date": "2026-01-10" },
+        { "status": "interviewing", "date": "2026-01-14" }
+      ],
+      "createdAt": "2026-01-10",
+      "updatedAt": "2026-01-14"
+    },
+    {
+      "id": "example-2",
+      "title": "Director of Product",
+      "company": "Initech",
+      "status": "applied",
+      "remote": "Remote",
+      "comp": "not listed",
+      "contact": "",
+      "url": "",
+      "notes": "",
+      "summary": "",
+      "requirements": "",
+      "jd": "",
+      "dateApplied": "2026-01-12",
+      "lastStatusDate": "2026-01-12",
+      "statusHistory": [
+        { "status": "applied", "date": "2026-01-12" }
+      ],
+      "createdAt": "2026-01-12",
+      "updatedAt": "2026-01-12"
+    },
+    {
+      "id": "example-3",
+      "title": "Staff PM, Platform",
+      "company": "Globex",
+      "status": "rejected",
+      "remote": "On-site",
+      "comp": "$210k base",
+      "contact": "",
+      "url": "https://globex.example.com/jobs/9876",
+      "notes": "Rejected after take-home. Feedback: looking for more infra background.",
+      "summary": "• Owns developer platform roadmap\n• Drives adoption across internal eng teams",
+      "requirements": "• Strong infra / platform PM background\n• 10+ years experience",
+      "jd": "",
+      "dateApplied": "2025-12-20",
+      "lastStatusDate": "2026-01-08",
+      "statusHistory": [
+        { "status": "applied", "date": "2025-12-20" },
+        { "status": "interviewing", "date": "2025-12-28" },
+        { "status": "rejected", "date": "2026-01-08" }
+      ],
+      "createdAt": "2025-12-20",
+      "updatedAt": "2026-01-08"
+    }
+  ]
+}

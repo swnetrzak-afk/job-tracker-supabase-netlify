@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>the hunt — job tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  :root {
+    --bg:#f5f0e8;--surface:#faf7f2;--surface2:#f0ebe0;--border:#ddd8cc;--border-strong:#c8c2b4;
+    --text:#2a2520;--text-muted:#8a8278;--text-light:#b0a898;
+    --accent:#c17b3a;--accent-light:#f0e4d0;--accent-dark:#9a5e28;
+    --s-applied:#4a7c9e;--s-interviewing:#7c6fa0;--s-rejected:#a05252;--s-declined:#7a8c5e;--s-lost:#8a8278;
+    --green:#5e8c6a;
+    --shadow:0 1px 3px rgba(42,37,32,.08),0 4px 12px rgba(42,37,32,.04);
+    --shadow-lg:0 4px 16px rgba(42,37,32,.12),0 8px 32px rgba(42,37,32,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .logo{font-family:'Instrument Serif',serif;font-size:22px;letter-spacing:-.02em}.logo span{color:var(--accent);font-style:italic}
+  .subtitle{font-family:'DM Mono',monospace;font-size:11px;color:var(--text-light);font-weight:300;margin-left:12px}
+  .header-left{display:flex;align-items:baseline}.header-actions{display:flex;gap:8px;align-items:center}
+  .stats-bar{background:var(--surface2);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;gap:24px;align-items:center;overflow-x:auto}
+  .stat{display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .stat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .stat-num{font-family:'DM Mono',monospace;font-size:15px;font-weight:500}
+  .stat-label{font-size:12px;color:var(--text-muted)}
+  .stat-div{width:1px;height:20px;background:var(--border);flex-shrink:0}
+  .main{padding:20px 24px;max-width:1400px}
+  .toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+  .search-input{flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .15s}
+  .search-input:focus{border-color:var(--accent)}.search-input::placeholder{color:var(--text-light)}
+  select.fs{padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;cursor:pointer}
+  .btn{padding:8px 14px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+  .btn-p{background:var(--accent);color:#fff}.btn-p:hover{background:var(--accent-dark)}
+  .btn-g{background:transparent;border:1px solid var(--border);color:var(--text-muted)}.btn-g:hover{border-color:var(--border-strong);color:var(--text);background:var(--surface2)}
+  .btn-sm{padding:5px 10px;font-size:12px}
+  .btn-d{background:transparent;border:1px solid #d0a0a0;color:var(--s-rejected)}.btn-d:hover{background:#fdf0f0}
+  .btn-grp{display:flex;gap:4px;align-items:center}
+  .btn-grp-label{font-size:11px;color:var(--text-light);font-family:'DM Mono',monospace;margin-right:4px}
+  .tw{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse}
+  thead tr{background:var(--surface2);border-bottom:1px solid var(--border)}
+  th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);white-space:nowrap}
+  tbody tr{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer}
+  tbody tr:last-child{border-bottom:none}
+  tbody tr:hover{background:var(--accent-light)}
+  td{padding:11px 14px;font-size:13px;vertical-align:middle}
+  .tm{font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted)}
+  .tr{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+  .ra{display:flex;gap:6px;opacity:0;transition:opacity .15s}
+  tbody tr:hover .ra{opacity:1}
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:500;white-space:nowrap}
+  .bd{width:6px;height:6px;border-radius:50%}
+  .b-applied{background:#e8f0f7;color:var(--s-applied)}.b-applied .bd{background:var(--s-applied)}
+  .b-interviewing{background:#f0edf7;color:var(--s-interviewing)}.b-interviewing .bd{background:var(--s-interviewing)}
+  .b-rejected{background:#f7eded;color:var(--s-rejected)}.b-rejected .bd{background:var(--s-rejected)}
+  .b-declined{background:#eef2e8;color:var(--s-declined)}.b-declined .bd{background:var(--s-declined)}
+  .b-lost{background:#f0ece6;color:var(--s-lost)}.b-lost .bd{background:var(--s-lost)}
+  .rp{font-size:10px;padding:2px 7px;border-radius:100px;font-weight:500;font-family:'DM Mono',monospace}
+  .r-yes{background:#e8f2ee;color:var(--green)}.r-no{background:var(--surface2);color:var(--text-light)}.r-hyb{background:#fef3e8;color:var(--accent)}
+  .mo{position:fixed;inset:0;background:rgba(42,37,32,.4);backdrop-filter:blur(2px);z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
+  .md{background:var(--surface);border-radius:12px;width:100%;max-width:700px;box-shadow:var(--shadow-lg);border:1px solid var(--border);animation:su .2s ease}
+  @keyframes su{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .mh{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+  .mt{font-family:'Instrument Serif',serif;font-size:20px;letter-spacing:-.02em}
+  .mb{padding:20px 24px;max-height:78vh;overflow-y:auto}
+  .mf{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+  .xb{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);padding:2px 6px;border-radius:4px}.xb:hover{background:var(--surface2)}
+  .fg{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .fgp{display:flex;flex-direction:column;gap:5px}
+  .fgp.full{grid-column:1/-1}
+  label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+  .lsub{font-weight:300;text-transform:none;letter-spacing:0;color:var(--text-light)}
+  input,select,textarea{padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .15s;width:100%}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+  textarea{resize:vertical}
+  .fsec{grid-column:1/-1;border-top:1px solid var(--border);margin-top:4px;padding-top:14px}
+  .fsec-lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-light);margin-bottom:10px}
+  .dg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+  .dl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px}
+  .dv{font-size:13px;line-height:1.5}
+  .ds{margin-bottom:16px}.ds:last-child{margin-bottom:0}
+  .mb-block{background:var(--surface2);border-radius:6px;padding:12px;font-size:12px;line-height:1.7;white-space:pre-wrap;font-family:'DM Mono',monospace;color:var(--text-muted)}
+  .jd-scroll{max-height:280px;overflow-y:auto}
+  .tg-sec{border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:16px}
+  .tg-hd{padding:10px 14px;background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);user-select:none}
+  .tg-hd:hover{background:var(--border)}
+  .tg-arr{transition:transform .2s;font-size:10px}.tg-arr.open{transform:rotate(90deg)}
+  .tg-bd{display:none;padding:14px}.tg-bd.open{display:block}
+  .hi{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+  .hi:last-child{border-bottom:none}
+  .hd{font-family:'DM Mono',monospace;color:var(--text-muted);white-space:nowrap}
+  .ec{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .eci{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .15s;font-size:13px;background:var(--surface);user-select:none}
+  .eci.sel{border-color:var(--accent);background:var(--accent-light);color:var(--accent-dark)}
+  .eci input[type=checkbox]{width:auto;padding:0;border:none;background:none;cursor:pointer}
+  .es{text-align:center;padding:60px 24px;color:var(--text-light)}
+  .ei{font-size:40px;margin-bottom:12px;display:block}
+  .et{font-family:'Instrument Serif',serif;font-size:20px;color:var(--text-muted);margin-bottom:6px}
+  a.jl{color:var(--accent);text-decoration:none;font-family:'DM Mono',monospace;font-size:11px}
+  a.jl:hover{text-decoration:underline}
+  /* IMPORT MODAL */
+  .import-drop{border:2px dashed var(--border);border-radius:8px;padding:32px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg)}
+  .import-drop:hover,.import-drop.drag{border-color:var(--accent);background:var(--accent-light)}
+  .import-drop-icon{font-size:32px;margin-bottom:8px}
+  .import-drop-label{font-size:13px;color:var(--text-muted)}
+  .import-drop-sub{font-size:11px;color:var(--text-light);margin-top:4px;font-family:'DM Mono',monospace}
+  .import-preview{margin-top:16px;background:var(--surface2);border-radius:6px;padding:12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text-muted);display:none}
+  .import-warn{background:#fef3e8;border:1px solid #e8d5bc;border-radius:6px;padding:12px;font-size:12px;color:var(--accent-dark);margin-top:12px;display:none}
+  #fileInput{display:none}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none}
+  .toast.show{opacity:1}
+  /* AUTH GATE */
+  #authGate{position:fixed;inset:0;background:var(--bg);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px}
+  .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:32px;max-width:380px;width:100%;text-align:center}
+  .auth-card .logo{font-size:28px;margin-bottom:6px}
+  .auth-card .sub{font-size:13px;color:var(--text-muted);margin-bottom:24px}
+  .auth-card input{margin-bottom:12px}
+  .auth-msg{font-size:12px;color:var(--text-muted);margin-top:12px;min-height:16px}
+  #app{display:none}
+  /* JD EXTRACT */
+  .extract-row{grid-column:1/-1;display:flex;flex-direction:column;gap:6px;padding:12px;background:var(--surface2);border-radius:6px;margin-bottom:8px}
+  .extract-row textarea{min-height:70px;font-family:'DM Mono',monospace;font-size:11px;background:var(--surface)}
+  .extract-controls{display:flex;gap:8px;align-items:center}
+  .ex-status{font-size:11px;color:var(--text-light);font-family:'DM Mono',monospace;flex:1}
+  .user-chip{font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-right:8px}
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div id="authGate">
+  <div class="auth-card">
+    <div class="logo">the <span>hunt</span></div>
+    <div class="sub">sign in to your tracker</div>
+    <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email">
+    <button class="btn btn-p" style="width:100%" onclick="sendMagicLink()">Send magic link</button>
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<div id="app">
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">the <span>hunt</span></div>
+    <span class="subtitle">job search tracker</span>
+  </div>
+  <div class="header-actions">
+    <span class="user-chip" id="userChip"></span>
+    <span class="btn-grp-label">export</span>
+    <div class="btn-grp">
+      <button class="btn btn-g" onclick="openExport()">CSV</button>
+      <button class="btn btn-g" onclick="exportJSON()">JSON</button>
+    </div>
+    <button class="btn btn-g" onclick="signOut()">sign out</button>
+    <button class="btn btn-p" onclick="openAdd()">+ add role</button>
+  </div>
+</div>
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="main">
+  <div class="toolbar">
+    <input type="text" class="search-input" placeholder="search by title or company..." id="si" oninput="render()">
+    <select class="fs" id="sf" onchange="render()">
+      <option value="">all statuses</option>
+      <option value="applied">applied</option>
+      <option value="interviewing">interviewing</option>
+      <option value="rejected">rejected</option>
+      <option value="declined">declined</option>
+      <option value="lost">lost to follow up</option>
+    </select>
+    <select class="fs" id="rf" onchange="render()">
+      <option value="">all locations</option>
+      <option value="Remote">remote</option>
+      <option value="Hybrid">hybrid</option>
+      <option value="On-site">on-site</option>
+    </select>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Role</th><th>Company</th><th>Applied</th><th>Status</th><th>Remote</th><th>Comp</th><th>Contact</th><th></th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+    <div id="es" style="display:none">
+      <div class="es"><span class="ei">🔍</span><div class="et">Nothing here yet</div><div style="font-size:13px">Add your first role to get started</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="mo" id="addMo" style="display:none" onclick="oco(event,'addMo')">
+  <div class="md">
+    <div class="mh"><div class="mt" id="moTitle">Add Role</div><button class="xb" onclick="cm('addMo')">×</button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="extract-row" id="exRow">
+          <label>Paste JD to auto-fill <span class="lsub">(optional — uses Claude to extract fields)</span></label>
+          <textarea id="exJd" placeholder="Paste a full job description here, then click Extract..."></textarea>
+          <div class="extract-controls">
+            <div class="ex-status" id="exStatus"></div>
+            <button type="button" class="btn btn-g btn-sm" onclick="document.getElementById('exJd').value='';document.getElementById('exStatus').textContent=''">Clear</button>
+            <button type="button" class="btn btn-p btn-sm" id="exBtn" onclick="extractJD()">Extract ✨</button>
+          </div>
+        </div>
+        <div class="fgp"><label>Job Title *</label><input type="text" id="ft" placeholder="Senior Product Manager"></div>
+        <div class="fgp"><label>Company *</label><input type="text" id="fc" placeholder="Acme Corp"></div>
+        <div class="fgp">
+          <label>Status</label>
+          <select id="fst">
+            <option value="applied">Applied</option><option value="interviewing">Interviewing</option>
+            <option value="rejected">Rejected</option><option value="declined">Declined</option>
+            <option value="lost">Lost to follow up</option>
+          </select>
+        </div>
+        <div class="fgp">
+          <label>Remote</label>
+          <select id="fr"><option value="Remote">Remote</option><option value="Hybrid">Hybrid</option><option value="On-site">On-site</option></select>
+        </div>
+        <div class="fgp"><label>Compensation</label><input type="text" id="fco" placeholder="$180-220k"></div>
+        <div class="fgp"><label>Network Contact</label><input type="text" id="fn" placeholder="Name (optional)"></div>
+        <div class="fgp full"><label>Source URL</label><input type="url" id="fu" placeholder="https://..."></div>
+        <div class="fgp full"><label>Notes</label><textarea id="fno" style="min-height:70px" placeholder="First impressions, red flags, questions to ask..."></textarea></div>
+        <div class="fsec"><div class="fsec-lbl">JD Content</div></div>
+        <div class="fgp full">
+          <label>JD Summary <span class="lsub">(what the role does)</span></label>
+          <textarea id="fsu" style="min-height:90px;font-family:'DM Mono',monospace;font-size:12px" placeholder="• Owns AI product build from prototype to production&#10;• Serves as cross-functional connector&#10;• ..."></textarea>
+        </div>
+        <div class="fgp full">
+          <label>Key Requirements <span class="lsub">(what they're screening for)</span></label>
+          <textarea id="freq" style="min-height:90px;font-family:'DM Mono',monospace;font-size:12px" placeholder="• 7+ years PM in technical/AI/data products&#10;• Hands-on LLMs, RAG, agentic patterns&#10;• ..."></textarea>
+        </div>
+        <div class="fgp full">
+          <label>Full JD <span class="lsub">(reference only — never exported)</span></label>
+          <textarea id="fjd" style="min-height:100px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text-muted)" placeholder="Paste full JD here for reference if the posting disappears..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="cm('addMo')">Cancel</button>
+      <button class="btn btn-p" onclick="save()">Save Role</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="mo" id="detMo" style="display:none" onclick="oco(event,'detMo')">
+  <div class="md" style="max-width:740px">
+    <div class="mh">
+      <div>
+        <div class="mt" id="detT"></div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="detC"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-g btn-sm" onclick="editFromDetail()">Edit</button>
+        <button class="xb" onclick="cm('detMo')">×</button>
+      </div>
+    </div>
+    <div class="mb" id="detB"></div>
+  </div>
+</div>
+
+<!-- CSV EXPORT MODAL -->
+<div class="mo" id="expMo" style="display:none" onclick="oco(event,'expMo')">
+  <div class="md" style="max-width:480px">
+    <div class="mh"><div class="mt">Export to CSV</div><button class="xb" onclick="cm('expMo')">×</button></div>
+    <div class="mb">
+      <div style="font-size:13px;color:var(--text-muted)">Pick your columns. Full JD is always excluded.</div>
+      <div class="ec" id="ecp"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="cm('expMo')">Cancel</button>
+      <button class="btn btn-p" onclick="doExport()">Download CSV</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+</div><!-- /#app -->
+
+<script>
+// Config comes from config.js (copy config.example.js to config.js).
+if (!window.HUNT_CONFIG) {
+  document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif"><h2>Missing config.js</h2><p>Copy <code>config.example.js</code> to <code>config.js</code> and fill in your Supabase URL and publishable key. See <code>SETUP.md</code>.</p></div>';
+  throw new Error('config.js not loaded');
+}
+const { SUPABASE_URL, SUPABASE_KEY } = window.HUNT_CONFIG;
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const ECOLS=[
+  {key:'title',label:'Job Title'},{key:'company',label:'Company'},{key:'dateApplied',label:'Date Applied'},
+  {key:'status',label:'Status'},{key:'remote',label:'Remote'},{key:'comp',label:'Compensation'},
+  {key:'contact',label:'Network Contact'},{key:'url',label:'Source URL'},{key:'notes',label:'Notes'},
+  {key:'summary',label:'JD Summary'},{key:'requirements',label:'Key Requirements'},{key:'lastStatusDate',label:'Last Status Change'},
+];
+let jobs=[],editId=null,detId=null,currentUser=null;
+let selExp=new Set(['title','company','dateApplied','status','remote','comp','contact','lastStatusDate']);
+
+// ── DB MAPPING ──
+// Database is snake_case; the rest of the app stays camelCase.
+function fromDb(r){
+  return {
+    id:r.id, title:r.title, company:r.company, status:r.status,
+    remote:r.remote||'', comp:r.comp||'', contact:r.contact||'',
+    url:r.url||'', notes:r.notes||'', summary:r.summary||'',
+    requirements:r.requirements||'', jd:r.jd||'',
+    dateApplied:r.date_applied||'', lastStatusDate:r.last_status_date||'',
+    statusHistory:r.status_history||[],
+    createdAt:r.created_at, updatedAt:r.updated_at,
+  };
+}
+function toDb(j){
+  return {
+    title:j.title, company:j.company, status:j.status,
+    remote:j.remote||null, comp:j.comp||null, contact:j.contact||null,
+    url:j.url||null, notes:j.notes||null, summary:j.summary||null,
+    requirements:j.requirements||null, jd:j.jd||null,
+    date_applied:j.dateApplied||null, last_status_date:j.lastStatusDate||null,
+    status_history:j.statusHistory||[],
+  };
+}
+
+// ── AUTH ──
+async function sendMagicLink(){
+  const email=document.getElementById('authEmail').value.trim();
+  const msg=document.getElementById('authMsg');
+  if(!email){msg.textContent='enter your email first';return}
+  msg.textContent='sending...';
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.href}});
+  if(error){msg.textContent='error: '+error.message;return}
+  msg.textContent='check your email — click the link to sign in';
+}
+async function signOut(){await sb.auth.signOut();location.reload()}
+
+async function boot(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){document.getElementById('authGate').style.display='flex';document.getElementById('app').style.display='none';return}
+  currentUser=session.user;
+  document.getElementById('userChip').textContent=currentUser.email;
+  document.getElementById('authGate').style.display='none';
+  document.getElementById('app').style.display='block';
+  await loadJobs();
+  stats();render();
+}
+sb.auth.onAuthStateChange((_e,session)=>{if(session&&!currentUser)boot()});
+boot();
+
+async function loadJobs(){
+  const {data,error}=await sb.from('jobs').select('*').order('created_at',{ascending:false});
+  if(error){toast('Load error: '+error.message);console.error(error);return}
+  jobs=(data||[]).map(fromDb);
+}
+
+// ── STATS ──
+function stats(){
+  const c={applied:0,interviewing:0,rejected:0,declined:0,lost:0};
+  jobs.forEach(j=>{if(c[j.status]!==undefined)c[j.status]++});
+  const col={applied:'var(--s-applied)',interviewing:'var(--s-interviewing)',rejected:'var(--s-rejected)',declined:'var(--s-declined)',lost:'var(--s-lost)'};
+  const lbl={applied:'Applied',interviewing:'Interviewing',rejected:'Rejected',declined:'Declined',lost:'Lost'};
+  let h=`<div class="stat"><div class="stat-num">${jobs.length}</div><div class="stat-label">total</div></div><div class="stat-div"></div>`;
+  Object.entries(c).forEach(([k,v])=>{h+=`<div class="stat"><div class="stat-dot" style="background:${col[k]}"></div><div class="stat-num">${v}</div><div class="stat-label">${lbl[k]}</div></div>`});
+  document.getElementById('statsBar').innerHTML=h;
+}
+
+// ── TABLE ──
+function badge(s){const m={applied:'Applied',interviewing:'Interviewing',rejected:'Rejected',declined:'Declined',lost:'Lost to follow up'};return`<span class="badge b-${s}"><span class="bd"></span>${m[s]||s}</span>`}
+function rpill(r){const c=r==='Remote'?'r-yes':r==='Hybrid'?'r-hyb':'r-no';return`<span class="rp ${c}">${r||'—'}</span>`}
+function fd(d){if(!d)return'—';try{return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'})}catch{return d}}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function render(){
+  const q=document.getElementById('si').value.toLowerCase();
+  const sf=document.getElementById('sf').value,rf=document.getElementById('rf').value;
+  let f=jobs.filter(j=>{
+    const mq=!q||(j.title||'').toLowerCase().includes(q)||(j.company||'').toLowerCase().includes(q);
+    return mq&&(!sf||j.status===sf)&&(!rf||j.remote===rf);
+  });
+  const tb=document.getElementById('tb'),es=document.getElementById('es');
+  if(!f.length){tb.innerHTML='';es.style.display='block';return}
+  es.style.display='none';
+  tb.innerHTML=f.map(j=>`
+    <tr onclick="openDet('${j.id}')">
+      <td><span class="tr" style="max-width:180px;font-weight:500">${esc(j.title)}</span></td>
+      <td><span class="tr" style="max-width:130px;color:var(--text-muted)">${esc(j.company)}</span></td>
+      <td class="tm">${fd(j.dateApplied)}</td>
+      <td>${badge(j.status)}</td>
+      <td>${rpill(j.remote)}</td>
+      <td class="tm">${j.comp||'—'}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${j.contact||'—'}</td>
+      <td onclick="event.stopPropagation()"><div class="ra">
+        <button class="btn btn-g btn-sm" onclick="openEdit('${j.id}')">edit</button>
+        <button class="btn btn-d btn-sm" onclick="del('${j.id}')">del</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+// ── DETAIL ──
+function openDet(id){
+  const j=jobs.find(x=>x.id===id);if(!j)return;
+  detId=id;
+  document.getElementById('detT').textContent=j.title;
+  document.getElementById('detC').textContent=j.company;
+  const hist=j.statusHistory&&j.statusHistory.length>1?`<div class="ds"><div class="dl">Status History</div><div>${j.statusHistory.map(h=>`<div class="hi"><span class="badge b-${h.status}" style="font-size:10px">${h.status}</span><span class="hd">${fd(h.date)}</span></div>`).join('')}</div></div>`:'';
+  const su=j.summary?`<div class="ds"><div class="dl">JD Summary</div><div class="mb-block">${esc(j.summary)}</div></div>`:'';
+  const rq=j.requirements?`<div class="ds"><div class="dl">Key Requirements</div><div class="mb-block">${esc(j.requirements)}</div></div>`:'';
+  const no=j.notes?`<div class="ds"><div class="dl">Notes</div><div class="dv" style="line-height:1.6">${esc(j.notes)}</div></div>`:'';
+  const jd=j.jd?`<div class="tg-sec"><div class="tg-hd" onclick="tog(this)"><span>Full JD</span><span class="tg-arr">▶</span></div><div class="tg-bd"><div class="mb-block jd-scroll">${esc(j.jd)}</div></div></div>`:'';
+  document.getElementById('detB').innerHTML=`
+    <div class="dg">
+      <div><div class="dl">Status</div><div class="dv">${badge(j.status)}</div></div>
+      <div><div class="dl">Applied</div><div class="dv tm">${fd(j.dateApplied)}</div></div>
+      <div><div class="dl">Remote</div><div class="dv">${rpill(j.remote)}</div></div>
+      <div><div class="dl">Compensation</div><div class="dv">${j.comp||'—'}</div></div>
+      <div><div class="dl">Network Contact</div><div class="dv">${j.contact||'—'}</div></div>
+      <div><div class="dl">Source</div><div class="dv">${j.url?`<a class="jl" href="${j.url}" target="_blank">↗ open JD</a>`:'—'}</div></div>
+    </div>${no}${su}${rq}${hist}${jd}`;
+  document.getElementById('detMo').style.display='flex';
+}
+
+function tog(hd){const arr=hd.querySelector('.tg-arr'),bd=hd.nextElementSibling;const o=bd.classList.contains('open');bd.classList.toggle('open',!o);arr.classList.toggle('open',!o)}
+function editFromDetail(){cm('detMo');openEdit(detId)}
+
+// ── ADD/EDIT ──
+function openAdd(){editId=null;document.getElementById('moTitle').textContent='Add Role';clr();document.getElementById('addMo').style.display='flex'}
+function openEdit(id){
+  const j=jobs.find(x=>x.id===id);if(!j)return;
+  editId=id;document.getElementById('moTitle').textContent='Edit Role';
+  document.getElementById('ft').value=j.title||'';
+  document.getElementById('fc').value=j.company||'';
+  document.getElementById('fst').value=j.status||'applied';
+  document.getElementById('fr').value=j.remote||'Remote';
+  document.getElementById('fco').value=j.comp||'';
+  document.getElementById('fn').value=j.contact||'';
+  document.getElementById('fu').value=j.url||'';
+  document.getElementById('fno').value=j.notes||'';
+  document.getElementById('fsu').value=j.summary||'';
+  document.getElementById('freq').value=j.requirements||'';
+  document.getElementById('fjd').value=j.jd||'';
+  document.getElementById('addMo').style.display='flex';
+}
+function clr(){['ft','fc','fco','fn','fu','fno','fsu','freq','fjd','exJd'].forEach(i=>{const el=document.getElementById(i);if(el)el.value=''});document.getElementById('fst').value='applied';document.getElementById('fr').value='Remote';document.getElementById('exStatus').textContent=''}
+
+async function save(){
+  const t=document.getElementById('ft').value.trim(),c=document.getElementById('fc').value.trim();
+  if(!t||!c){alert('Job title and company are required.');return}
+  const st=document.getElementById('fst').value,now=new Date().toISOString().split('T')[0];
+  const f={title:t,company:c,status:st,remote:document.getElementById('fr').value,comp:document.getElementById('fco').value.trim(),contact:document.getElementById('fn').value.trim(),url:document.getElementById('fu').value.trim(),notes:document.getElementById('fno').value.trim(),summary:document.getElementById('fsu').value.trim(),requirements:document.getElementById('freq').value.trim(),jd:document.getElementById('fjd').value.trim()};
+  if(editId){
+    const p=jobs.find(j=>j.id===editId);
+    const h=p.statusHistory&&p.statusHistory.length?p.statusHistory.slice():[{status:p.status,date:p.dateApplied}];
+    if(st!==p.status)h.push({status:st,date:now});
+    const merged={...p,...f,statusHistory:h,lastStatusDate:st!==p.status?now:p.lastStatusDate};
+    const {error}=await sb.from('jobs').update(toDb(merged)).eq('id',editId);
+    if(error){alert('Save failed: '+error.message);return}
+  }else{
+    const fresh={...f,dateApplied:now,lastStatusDate:now,statusHistory:[{status:st,date:now}]};
+    const {error}=await sb.from('jobs').insert({...toDb(fresh),user_id:currentUser.id});
+    if(error){alert('Save failed: '+error.message);return}
+  }
+  await loadJobs();stats();render();cm('addMo');
+}
+
+async function del(id){
+  if(!confirm('Remove this role?'))return;
+  const {error}=await sb.from('jobs').delete().eq('id',id);
+  if(error){alert('Delete failed: '+error.message);return}
+  await loadJobs();stats();render();
+}
+
+// ── JD EXTRACT ──
+async function extractJD(){
+  const raw=document.getElementById('exJd').value.trim();
+  const status=document.getElementById('exStatus');
+  const btn=document.getElementById('exBtn');
+  if(!raw){status.textContent='paste a JD first';return}
+  btn.disabled=true;btn.style.opacity='.5';status.textContent='extracting...';
+  try{
+    const sourceUrl=document.getElementById('fu').value.trim();
+    const res=await fetch('/extract-jd',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jd:raw,url:sourceUrl})});
+    const j=await res.json();
+    if(!res.ok){status.textContent='error: '+(j.error||res.status);return}
+    // Fill empty fields; do not overwrite anything the user already typed.
+    const setIf=(id,v)=>{const el=document.getElementById(id);if(el&&!el.value.trim()&&v)el.value=v};
+    setIf('ft',j.title);
+    setIf('fc',j.company);
+    setIf('fco',j.comp);
+    setIf('fu',j.url);
+    setIf('fsu',j.summary);
+    setIf('freq',j.requirements);
+    if(j.remote&&['Remote','Hybrid','On-site'].includes(j.remote))document.getElementById('fr').value=j.remote;
+    // Stash the full JD into the Full JD field so it's saved alongside the role.
+    const jd=document.getElementById('fjd');if(!jd.value.trim())jd.value=raw;
+    status.textContent='✓ filled — review and save';
+  }catch(e){status.textContent='error: '+e.message}
+  finally{btn.disabled=false;btn.style.opacity='1'}
+}
+
+// ── CSV EXPORT ──
+function openExport(){
+  document.getElementById('ecp').innerHTML=ECOLS.map(c=>`<div class="eci ${selExp.has(c.key)?'sel':''}" onclick="togExp('${c.key}',this)"><input type="checkbox" ${selExp.has(c.key)?'checked':''} readonly> ${c.label}</div>`).join('');
+  document.getElementById('expMo').style.display='flex';
+}
+function togExp(k,el){if(selExp.has(k)){selExp.delete(k);el.classList.remove('sel');el.querySelector('input').checked=false}else{selExp.add(k);el.classList.add('sel');el.querySelector('input').checked=true}}
+function doExport(){
+  const cols=ECOLS.filter(c=>selExp.has(c.key));
+  const csv=[cols.map(c=>c.label).join(','),...jobs.map(j=>cols.map(c=>`"${String(j[c.key]||'').replace(/"/g,'""')}"`).join(','))].join('\n');
+  dl(new Blob([csv],{type:'text/csv'}),`job-tracker-${today()}.csv`);
+  cm('expMo');
+}
+
+// ── JSON EXPORT ──
+function exportJSON(){
+  const payload={exportedAt:new Date().toISOString(),version:'hunt-v4',count:jobs.length,jobs};
+  dl(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`job-tracker-backup-${today()}.json`);
+  toast(`Exported ${jobs.length} roles — save to Drive for backup`);
+}
+
+// ── UTILS ──
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click()}
+function today(){return new Date().toISOString().split('T')[0]}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
+function cm(id){document.getElementById(id).style.display='none'}
+function oco(e,id){if(e.target===document.getElementById(id))cm(id)}
+</script>
+</body>
+</html>

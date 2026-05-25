@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>the hunt — import backup</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:#f5f0e8;color:#2a2520;font-size:14px;padding:40px 20px;display:flex;justify-content:center}
+  .card{background:#faf7f2;border:1px solid #ddd8cc;border-radius:12px;padding:32px;max-width:560px;width:100%;box-shadow:0 4px 16px rgba(42,37,32,.12)}
+  h1{font-family:'Instrument Serif',serif;font-size:26px;margin-bottom:6px}
+  h1 span{color:#c17b3a;font-style:italic}
+  p{color:#8a8278;margin-bottom:16px;line-height:1.5}
+  .step{border-top:1px solid #ddd8cc;padding-top:16px;margin-top:16px}
+  .step-num{font-family:'DM Mono',monospace;font-size:11px;color:#b0a898;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+  input,button{font-family:'DM Sans',sans-serif;font-size:13px;padding:9px 12px;border-radius:6px;border:1px solid #ddd8cc;background:#f5f0e8;width:100%;margin-bottom:10px}
+  button{background:#c17b3a;color:#fff;border:none;cursor:pointer;font-weight:500}
+  button:hover{background:#9a5e28}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button.ghost{background:transparent;color:#8a8278;border:1px solid #ddd8cc}
+  .log{background:#f0ebe0;border-radius:6px;padding:12px;font-family:'DM Mono',monospace;font-size:11px;color:#8a8278;white-space:pre-wrap;max-height:240px;overflow-y:auto;margin-top:12px;min-height:60px}
+  a{color:#c17b3a;text-decoration:none}
+  a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>import <span>backup</span></h1>
+  <p>Import jobs from a JSON file matching the format in <code>sample-data.json</code>. Common uses: restoring a backup, or migrating from another tracker. Runs in your browser using your login.</p>
+  <p style="font-size:12px">Have data in CSV or another tool? Paste it into Claude or ChatGPT along with <code>sample-data.json</code> and ask it to convert — then import the result here.</p>
+
+  <div class="step">
+    <div class="step-num">Step 1 — sign in</div>
+    <input type="email" id="email" placeholder="you@example.com">
+    <button onclick="login()">Send magic link</button>
+    <div id="authStatus" style="font-size:12px;color:#8a8278"></div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">Step 2 — choose your JSON file</div>
+    <input type="file" id="file" accept=".json">
+    <button onclick="runImport()" id="goBtn" disabled>Import to Supabase</button>
+    <div class="log" id="log">waiting...</div>
+  </div>
+
+  <p style="margin-top:16px;font-size:12px"><a href="/">← back to tracker</a></p>
+</div>
+
+<script>
+if (!window.HUNT_CONFIG) {
+  document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif"><h2>Missing config.js</h2><p>Copy <code>config.example.js</code> to <code>config.js</code> and fill in your Supabase URL and publishable key. See <code>SETUP.md</code>.</p></div>';
+  throw new Error('config.js not loaded');
+}
+const { SUPABASE_URL, SUPABASE_KEY } = window.HUNT_CONFIG;
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let user=null;
+const logEl=document.getElementById('log');
+function log(s){logEl.textContent+=(logEl.textContent==='waiting...'?'':'\n')+s;if(logEl.textContent.startsWith('waiting...'))logEl.textContent=s;logEl.scrollTop=logEl.scrollHeight}
+
+async function check(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){user=session.user;document.getElementById('authStatus').textContent='signed in as '+user.email;document.getElementById('goBtn').disabled=false}
+}
+check();
+sb.auth.onAuthStateChange((_e,s)=>{if(s){user=s.user;document.getElementById('authStatus').textContent='signed in as '+user.email;document.getElementById('goBtn').disabled=false}});
+
+async function login(){
+  const email=document.getElementById('email').value.trim();
+  if(!email)return;
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.href}});
+  document.getElementById('authStatus').textContent=error?('error: '+error.message):'check your email for the link';
+}
+
+function toDb(j,uid){
+  return {
+    user_id:uid,
+    title:j.title||'(untitled)',
+    company:j.company||'(unknown)',
+    status:['applied','interviewing','rejected','declined','lost'].includes(j.status)?j.status:'applied',
+    remote:j.remote||null, comp:j.comp||null, contact:j.contact||null,
+    url:j.url||null, notes:j.notes||null, summary:j.summary||null,
+    requirements:j.requirements||null, jd:j.jd||null,
+    date_applied:j.dateApplied||null, last_status_date:j.lastStatusDate||null,
+    status_history:j.statusHistory||[],
+  };
+}
+
+async function runImport(){
+  if(!user){log('sign in first');return}
+  const f=document.getElementById('file').files[0];
+  if(!f){log('pick a file first');return}
+  const text=await f.text();
+  let parsed;
+  try{const d=JSON.parse(text);parsed=Array.isArray(d)?d:(d.jobs||[])}
+  catch(e){log('invalid JSON: '+e.message);return}
+  if(!parsed.length){log('no rows found in file');return}
+  log('found '+parsed.length+' rows; inserting...');
+  document.getElementById('goBtn').disabled=true;
+
+  const rows=parsed.map(j=>toDb(j,user.id));
+  // Insert in chunks of 50 to be polite.
+  let done=0,failed=0;
+  for(let i=0;i<rows.length;i+=50){
+    const chunk=rows.slice(i,i+50);
+    const {error}=await sb.from('jobs').insert(chunk);
+    if(error){failed+=chunk.length;log('chunk '+i+' failed: '+error.message)}
+    else{done+=chunk.length;log('inserted '+done+'/'+rows.length)}
+  }
+  log('done. inserted='+done+', failed='+failed);
+  document.getElementById('goBtn').disabled=false;
+}
+</script>
+</body>
+</html>

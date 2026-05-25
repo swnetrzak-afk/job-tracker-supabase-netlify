@@ -1,0 +1,9 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# Pretty URL: /extract-jd → /.netlify/functions/extract-jd
+[[redirects]]
+  from = "/extract-jd"
+  to = "/.netlify/functions/extract-jd"
+  status = 200
