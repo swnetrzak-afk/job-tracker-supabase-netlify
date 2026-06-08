@@ -1,8 +1,10 @@
 # the hunt — personal job tracker
 
-A self-hosted, private job application tracker. Built as a single-page app with Supabase for storage and Claude for auto-extracting fields from pasted job descriptions. Runs free on Netlify + Supabase free tiers; the only paid piece is Anthropic API usage (~$0.002 per JD extract).
+A self-hosted, private job application tracker. Built as a single-page app with Supabase for storage and Claude for auto-extracting fields from pasted job descriptions. Runs free on Netlify + Supabase free tiers; the only paid piece is Anthropic API usage (~$0.002 per JD extract). 
 
-Designed for personal use — one tracker per deploy. See `SETUP.md` for one-time setup (~30 min).
+Designed for personal use — one tracker per deploy. See `SETUP.md` for one-time setup (~30 min). 
+
+<img width="1835" height="525" alt="Screenshot" src="https://github.com/user-attachments/assets/f9ddf2fe-f9c1-4999-9c2f-00b692161379" />
 
 ---
 
