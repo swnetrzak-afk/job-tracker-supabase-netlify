@@ -4,7 +4,7 @@ A self-hosted, private job application tracker. Built as a single-page app with 
 
 Designed for personal use — one tracker per deploy. See `SETUP.md` for one-time setup (~30 min).
 
-<img width="1835" height="525" alt="Screenshot" src="https://github.com/user-attachments/assets/f9ddf2fe-f9c1-4999-9c2f-00b692161379" />
+<img width="1644" height="1068" alt="Screenshot" src="https://github.com/user-attachments/assets/07412413-e537-4e52-8a7e-542cbc06fae1" />
 
 ---
 
