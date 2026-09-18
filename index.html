@@ -39,8 +39,12 @@
   .btn-g{background:transparent;border:1px solid var(--border);color:var(--text-muted)}.btn-g:hover{border-color:var(--border-strong);color:var(--text);background:var(--surface2)}
   .btn-sm{padding:5px 10px;font-size:12px}
   .btn-d{background:transparent;border:1px solid #d0a0a0;color:var(--s-rejected)}.btn-d:hover{background:#fdf0f0}
-  .btn-grp{display:flex;gap:4px;align-items:center}
-  .btn-grp-label{font-size:11px;color:var(--text-light);font-family:'DM Mono',monospace;margin-right:4px}
+  .exp-wrap{position:relative;display:inline-block}
+  .exp-menu{display:none;position:absolute;top:100%;right:0;margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);min-width:150px;z-index:120;overflow:hidden}
+  .exp-menu.open{display:block}
+  .exp-menu button{display:block;width:100%;text-align:left;background:transparent;border:none;color:var(--text);padding:10px 14px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer}
+  .exp-menu button:hover{background:var(--surface2)}
+  .exp-menu button+button{border-top:1px solid var(--border)}
   .tw{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow)}
   table{width:100%;border-collapse:collapse}
   thead tr{background:var(--surface2);border-bottom:1px solid var(--border)}
@@ -136,7 +140,6 @@
     .header{padding:12px 16px;flex-wrap:wrap;gap:10px}
     .subtitle{display:none}
     .header-actions{flex-wrap:wrap;gap:6px}
-    .btn-grp-label{display:none}
     .user-chip{width:100%;margin:0;order:-1}
     .stats-bar{gap:16px;padding:10px 16px}
     .main{padding:16px}
@@ -192,10 +195,12 @@
   </div>
   <div class="header-actions">
     <span class="user-chip" id="userChip"></span>
-    <span class="btn-grp-label">export</span>
-    <div class="btn-grp">
-      <button class="btn btn-g" onclick="openExport()">CSV</button>
-      <button class="btn btn-g" onclick="exportJSON()">JSON</button>
+    <div class="exp-wrap">
+      <button class="btn btn-g" onclick="toggleExportMenu(event)">export ▾</button>
+      <div class="exp-menu" id="expMenu">
+        <button onclick="closeExportMenu();openExport()">Export CSV</button>
+        <button onclick="closeExportMenu();exportJSON()">Export JSON</button>
+      </div>
     </div>
     <button class="btn btn-g" onclick="signOut()">sign out</button>
     <button class="btn btn-p" onclick="openAdd()">+ add role</button>
@@ -591,6 +596,11 @@ function doExport(){
   dl(new Blob([csv],{type:'text/csv'}),`job-tracker-${today()}.csv`);
   cm('expMo');
 }
+
+// ── EXPORT DROPDOWN ──
+function toggleExportMenu(e){e.stopPropagation();document.getElementById('expMenu').classList.toggle('open')}
+function closeExportMenu(){document.getElementById('expMenu').classList.remove('open')}
+document.addEventListener('click',e=>{if(!e.target.closest('.exp-wrap'))closeExportMenu()});
 
 // ── JSON EXPORT ──
 function exportJSON(){

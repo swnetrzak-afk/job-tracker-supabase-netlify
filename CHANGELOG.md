@@ -5,6 +5,12 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-09-18
+
+### Changed
+- Consolidated the header's CSV and JSON export buttons into a single
+  "export ▾" dropdown menu (closes on outside-click or after a selection).
+
 ## [1.3.0] — 2026-09-18
 
 ### Added
