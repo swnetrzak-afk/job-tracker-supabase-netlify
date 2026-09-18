@@ -80,7 +80,7 @@ Netlify auto-deploys. Watch the **Deploys** tab; first deploy installs the funct
 ## Daily use
 
 - **Add a role**: click "+ add role" → paste JD → **Extract ✨** → review & save.
-- **Mobile**: same URL works in any browser, including phone.
+- **Mobile**: same URL works in any browser — the table collapses into stacked cards on phones.
 - **Backups**: the JSON export button still works — keep using it occasionally for belt-and-suspenders.
 
 ## Gotchas
@@ -106,4 +106,3 @@ This serves the site at `http://localhost:8888` AND runs the Function locally. Y
 
 - **Login works but rows don't appear**: open browser devtools console. Most likely the SQL in step 1 didn't run cleanly — re-run `schema.sql`.
 - **"Extract" button fails**: check Netlify → Functions → extract-jd logs. Usually a missing env var.
-- **Phone shows a cramped table**: known; the original CSS assumes desktop. Once you've used it a bit and know what's awkward on mobile, ask for a responsive-CSS pass.
