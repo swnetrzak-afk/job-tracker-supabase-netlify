@@ -26,6 +26,18 @@ Return ONLY a single JSON object, no prose, no markdown fencing. Schema:
 If a field cannot be determined, use "" (empty string). Do not guess or fabricate.
 Bullets must be concise — one clear thought each, no run-ons.`;
 
+// Company names the model emits when it couldn't find a real one. We treat these
+// as "not found" and blank the field so the client leaves it empty for the user,
+// rather than writing a placeholder like "Confidential" into the company column.
+const COMPANY_PLACEHOLDERS = new Set([
+  "", "the company", "company", "n/a", "na", "unknown", "not specified",
+  "not found", "not listed", "none", "employer", "the employer", "confidential",
+]);
+function isConfidentCompany(name) {
+  const n = (name || "").trim().toLowerCase();
+  return n.length > 0 && !COMPANY_PLACEHOLDERS.has(n);
+}
+
 export default async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -54,7 +66,7 @@ export default async (req) => {
 
   let claudeRes;
   try {
-    claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+    claudeRes = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -78,7 +90,11 @@ export default async (req) => {
   }
 
   const data = await claudeRes.json();
-  const text = data?.content?.[0]?.text || "";
+  // Take the LAST text block, not content[0] — a response can lead with a
+  // non-text block (e.g. a thinking block on thinking-capable models), which
+  // would leave content[0].text undefined and break parsing.
+  const textBlocks = (Array.isArray(data?.content) ? data.content : []).filter(b => b && b.type === "text");
+  const text = textBlocks.length ? (textBlocks[textBlocks.length - 1].text || "") : "";
 
   // Tolerate accidental fencing or whitespace, then parse.
   const cleaned = text.trim().replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
@@ -86,11 +102,41 @@ export default async (req) => {
   try {
     extract = JSON.parse(cleaned);
   } catch {
-    return json({ error: "Claude returned non-JSON", raw: text }, 502);
+    return json({ error: "Claude returned non-JSON", raw: text, stop_reason: data?.stop_reason }, 502);
+  }
+
+  // Blank out placeholder company names so the client keeps the field empty.
+  if (extract && !isConfidentCompany(extract.company)) {
+    extract.company = "";
   }
 
   return json(extract, 200);
 };
+
+// POST wrapper that retries transient Anthropic errors (rate limit / overloaded /
+// service unavailable) and network blips with exponential backoff. The Anthropic
+// call is a stateless completion, so replaying it is safe.
+async function fetchWithRetry(url, options, { retries = 2, retryStatuses = [429, 503, 529] } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      // Return on success, on a non-transient error (fail fast), or when out of retries.
+      if (res.ok || !retryStatuses.includes(res.status) || attempt === retries) {
+        return res;
+      }
+    } catch (e) {
+      lastErr = e;
+      if (attempt === retries) throw e;
+    }
+    await sleep(300 * Math.pow(2, attempt)); // 300ms, then 600ms
+  }
+  throw lastErr;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
