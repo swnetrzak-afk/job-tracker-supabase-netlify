@@ -5,6 +5,19 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-09-18
+
+### Added
+- Sortable table columns: click Role, Company, Applied, or Status to sort;
+  click again to flip direction (▲/▼ indicator on the active column). Applied
+  sorts chronologically and Status by pipeline order. Desktop table only —
+  the mobile card view stays newest-first.
+- Duplicate guard: saving a *new* role whose company + title already exists
+  prompts for confirmation before adding it again.
+- Keyboard shortcuts: Esc closes the open modal; Enter sends the magic link
+  from the sign-in field and saves the Add/Edit form (Enter inside a textarea
+  still inserts a newline).
+
 ## [1.2.0] — 2026-09-18
 
 ### Added

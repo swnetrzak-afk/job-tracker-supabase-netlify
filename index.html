@@ -45,6 +45,9 @@
   table{width:100%;border-collapse:collapse}
   thead tr{background:var(--surface2);border-bottom:1px solid var(--border)}
   th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);white-space:nowrap}
+  th.sortable{cursor:pointer;user-select:none}
+  th.sortable:hover{color:var(--text)}
+  th .sarr{font-size:9px;color:var(--accent);margin-left:3px}
   tbody tr{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer}
   tbody tr:last-child{border-bottom:none}
   tbody tr:hover{background:var(--accent-light)}
@@ -221,7 +224,13 @@
   </div>
   <div class="tw">
     <table>
-      <thead><tr><th>Role</th><th>Company</th><th>Applied</th><th>Status</th><th>Remote</th><th>Comp</th><th>Contact</th><th></th></tr></thead>
+      <thead><tr>
+        <th class="sortable" onclick="setSort('title')">Role<span class="sarr" id="sarr-title"></span></th>
+        <th class="sortable" onclick="setSort('company')">Company<span class="sarr" id="sarr-company"></span></th>
+        <th class="sortable" onclick="setSort('dateApplied')">Applied<span class="sarr" id="sarr-dateApplied"></span></th>
+        <th class="sortable" onclick="setSort('status')">Status<span class="sarr" id="sarr-status"></span></th>
+        <th>Remote</th><th>Comp</th><th>Contact</th><th></th>
+      </tr></thead>
       <tbody id="tb"></tbody>
     </table>
     <div id="es" style="display:none">
@@ -337,6 +346,8 @@ const ECOLS=[
   {key:'summary',label:'JD Summary'},{key:'requirements',label:'Key Requirements'},{key:'lastStatusDate',label:'Last Status Change'},
 ];
 let jobs=[],editId=null,detId=null,currentUser=null;
+let sortKey=null,sortDir=1; // sortDir: 1 asc, -1 desc; null key = default (newest first)
+const STATUS_ORDER={applied:0,interviewing:1,rejected:2,declined:3,lost:4};
 let selExp=new Set(['title','company','dateApplied','status','remote','comp','contact','lastStatusDate']);
 
 // ── DB MAPPING ──
@@ -418,6 +429,8 @@ function render(){
     const mq=!q||(j.title||'').toLowerCase().includes(q)||(j.company||'').toLowerCase().includes(q);
     return mq&&(!sf||j.status===sf)&&(!rf||j.remote===rf);
   });
+  if(sortKey)f.sort(cmpBy(sortKey));
+  updateSortArrows();
   const tb=document.getElementById('tb'),es=document.getElementById('es');
   if(!f.length){tb.innerHTML='';es.style.display='block';return}
   es.style.display='none';
@@ -435,6 +448,31 @@ function render(){
         <button class="btn btn-d btn-sm" onclick="del('${j.id}')">del</button>
       </div></td>
     </tr>`).join('');
+}
+
+// ── SORTING ──
+// Click a header to sort by it; click again to flip direction. Comparator
+// handles dates, the status pipeline order, and case-insensitive text.
+function setSort(key){
+  if(sortKey===key)sortDir=-sortDir;else{sortKey=key;sortDir=1}
+  render();
+}
+function cmpBy(key){
+  return (a,b)=>{
+    let av,bv;
+    if(key==='dateApplied'){av=a.dateApplied||'';bv=b.dateApplied||''}          // ISO strings sort chronologically
+    else if(key==='status'){av=STATUS_ORDER[a.status]??99;bv=STATUS_ORDER[b.status]??99}
+    else{av=(a[key]||'').toLowerCase();bv=(b[key]||'').toLowerCase()}
+    if(av<bv)return -1*sortDir;
+    if(av>bv)return 1*sortDir;
+    return 0;
+  };
+}
+function updateSortArrows(){
+  ['title','company','dateApplied','status'].forEach(k=>{
+    const el=document.getElementById('sarr-'+k);
+    if(el)el.textContent=(sortKey===k)?(sortDir===1?'▲':'▼'):'';
+  });
 }
 
 // ── DETAIL ──
@@ -496,6 +534,9 @@ async function save(){
     const {error}=await sb.from('jobs').update(toDb(merged)).eq('id',editId);
     if(error){alert('Save failed: '+error.message);return}
   }else{
+    // Duplicate guard: warn if a role with the same company + title already exists.
+    const dup=jobs.some(j=>(j.title||'').trim().toLowerCase()===t.toLowerCase()&&(j.company||'').trim().toLowerCase()===c.toLowerCase());
+    if(dup&&!confirm(`You already track “${t}” at ${c}. Add it again anyway?`))return;
     const fresh={...f,dateApplied:now,lastStatusDate:now,statusHistory:[{status:st,date:now}]};
     const {error}=await sb.from('jobs').insert({...toDb(fresh),user_id:currentUser.id});
     if(error){alert('Save failed: '+error.message);return}
@@ -564,6 +605,24 @@ function today(){return new Date().toISOString().split('T')[0]}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
 function cm(id){document.getElementById(id).style.display='none'}
 function oco(e,id){if(e.target===document.getElementById(id))cm(id)}
+
+// ── KEYBOARD ──
+// Esc closes any open modal. Enter sends the magic link (auth) or saves the
+// Add/Edit form — but only from a plain input, so Enter in a textarea still
+// makes a newline.
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    ['addMo','detMo','expMo'].forEach(id=>{const el=document.getElementById(id);if(el&&el.style.display==='flex')cm(id)});
+    return;
+  }
+  if(e.key==='Enter'){
+    const ae=document.activeElement;
+    const gate=document.getElementById('authGate');
+    if(gate&&gate.style.display!=='none'&&ae&&ae.id==='authEmail'){e.preventDefault();sendMagicLink();return}
+    const add=document.getElementById('addMo');
+    if(add&&add.style.display==='flex'&&ae&&ae.tagName==='INPUT'){e.preventDefault();save();return}
+  }
+});
 </script>
 </body>
 </html>
